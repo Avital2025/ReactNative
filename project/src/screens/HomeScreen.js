@@ -1,551 +1,353 @@
-"use client"
-
-import React, { useState, useCallback, useRef } from "react"
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   FlatList,
   View,
   StyleSheet,
-  ImageBackground,
   TouchableOpacity,
   Text,
-  Animated,
   TextInput,
-  Alert,
   StatusBar,
-} from "react-native"
-import AsyncStorage from "@react-native-async-storage/async-storage"
-import TaskItem from "../components/TaskItem"
-import { useFocusEffect } from "@react-navigation/native"
-import { Ionicons } from "@expo/vector-icons"
-import { Swipeable } from "react-native-gesture-handler"
+  Alert,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import TaskItem from "../components/TaskItem";
+import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { Swipeable } from "react-native-gesture-handler";
+
+const TEXT_DARK = '#333';
+const TEXT_LIGHT = '#777';
+const BACKGROUND_LIGHT = '#f9f9f9'; 
+const PRIMARY_COLOR = '#37474f'; 
+const SECONDARY_COLOR = '#aed581';
 
 export default function HomeScreen({ navigation }) {
-  const [tasks, setTasks] = useState([])
-  const [filteredTasks, setFilteredTasks] = useState([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [filter, setFilter] = useState("all") 
-  const [sortBy, setSortBy] = useState("date") 
-  const [showSearch, setShowSearch] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
+  const [tasks, setTasks] = useState([]);
+  const [filteredTasks, setFilteredTasks] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("date");
+  const [showSearch, setShowSearch] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const searchInputRef = useRef(null);
+  const swipeableRefs = useRef({});
 
-  const searchInputRef = useRef(null)
-  const swipeableRefs = useRef({})
-
-  useFocusEffect(
-    useCallback(() => {
-      loadTasks()
-    }, []),
-  )
+  useFocusEffect(useCallback(() => { loadTasks(); }, []));
+  useEffect(() => { applyFiltersAndSort(tasks); }, [tasks, filter, sortBy, searchQuery]);
 
   const loadTasks = async () => {
     try {
-      const storedTasks = await AsyncStorage.getItem("tasks")
-      let loadedTasks = storedTasks ? JSON.parse(storedTasks) : []
-
-      // Convert simple string tasks to object format
-      loadedTasks = loadedTasks.map((task) => (typeof task === "string" ? { text: task, completed: false } : task))
-
-      setTasks(loadedTasks)
-      applyFiltersAndSort(loadedTasks)
+      const stored = await AsyncStorage.getItem("tasks");
+      const loaded = stored ? JSON.parse(stored).map(t => typeof t === 'string' ? { text: t, completed: false } : t) : [];
+      setTasks(loaded);
+      applyFiltersAndSort(loaded);
     } catch (error) {
-      console.error("Failed to load tasks", error)
-      Alert.alert("Error", "Failed to load tasks")
+      console.error("Load failed", error);
+      Alert.alert("Error", "Could not load tasks.");
     }
-  }
+  };
 
   const applyFiltersAndSort = (taskList) => {
-    let result = [...taskList]
-
-    // Apply search filter
-    if (searchQuery) {
-      result = result.filter((task) => (task.text || task).toLowerCase().includes(searchQuery.toLowerCase()))
-    }
-
-    // Apply status filter
-    if (filter === "active") {
-      result = result.filter((task) => !task.completed)
-    } else if (filter === "completed") {
-      result = result.filter((task) => task.completed)
-    }
-
-    // Apply sorting
+    let result = [...taskList];
+    if (searchQuery) result = result.filter(t => (t.text || t).toLowerCase().includes(searchQuery.toLowerCase()));
+    if (filter === "active") result = result.filter(t => !t.completed);
+    if (filter === "completed") result = result.filter(t => t.completed);
     if (sortBy === "priority") {
-      const priorityOrder = { high: 0, normal: 1, low: 2, undefined: 3 }
-      result.sort((a, b) => {
-        return (priorityOrder[a.priority] || 3) - (priorityOrder[b.priority] || 3)
-      })
+      const order = { high: 0, normal: 1, low: 2, undefined: 3 };
+      result.sort((a, b) => (order[a.priority] || 3) - (order[b.priority] || 3));
     } else if (sortBy === "date") {
-      result.sort((a, b) => {
-        if (!a.createdAt) return 1
-        if (!b.createdAt) return -1
-        return new Date(b.createdAt) - new Date(a.createdAt)
-      })
+      result.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     }
+    setFilteredTasks(result);
+  };
 
-    setFilteredTasks(result)
-  }
-
-  // Watch for changes in tasks, filter, sortBy, and searchQuery
-  React.useEffect(() => {
-    applyFiltersAndSort(tasks)
-  }, [tasks, filter, sortBy, searchQuery])
-
-  const toggleTaskCompletion = async (index) => {
-    try {
-      // Get the actual task from filteredTasks
-      const taskToToggle = filteredTasks[index]
-
-      // Find this exact task object in the original tasks array
-      const taskIndex = tasks.findIndex(
-        (task) =>
-          (typeof task === "string" && typeof taskToToggle === "string" && task === taskToToggle) ||
-          (typeof task !== "string" &&
-            typeof taskToToggle !== "string" &&
-            task.text === taskToToggle.text &&
-            task.createdAt === taskToToggle.createdAt),
-      )
-
-      if (taskIndex !== -1) {
-        const updatedTasks = [...tasks]
-        const task = updatedTasks[taskIndex]
-
-        if (typeof task === "string") {
-          // Convert string task to object
-          updatedTasks[taskIndex] = { text: task, completed: true }
-        } else {
-          // Toggle completion on object task
-          updatedTasks[taskIndex] = {
-            ...task,
-            completed: !task.completed,
-          }
-        }
-
-        setTasks(updatedTasks)
-        await AsyncStorage.setItem("tasks", JSON.stringify(updatedTasks))
-      }
-    } catch (error) {
-      console.error("Failed to update task", error)
-      Alert.alert("Error", "Failed to update task")
-    }
-  }
-
-  const deleteTask = async (index) => {
-    try {
-      // Get the actual task from filteredTasks
-      const taskToDelete = filteredTasks[index]
-
-      // Find this exact task object in the original tasks array
-      const taskIndex = tasks.findIndex(
-        (task) =>
-          (typeof task === "string" && typeof taskToDelete === "string" && task === taskToDelete) ||
-          (typeof task !== "string" &&
-            typeof taskToDelete !== "string" &&
-            task.text === taskToDelete.text &&
-            task.createdAt === taskToDelete.createdAt),
-      )
-
-      if (taskIndex !== -1) {
-        const updatedTasks = [...tasks]
-        updatedTasks.splice(taskIndex, 1)
-        setTasks(updatedTasks)
-        await AsyncStorage.setItem("tasks", JSON.stringify(updatedTasks))
-      }
-    } catch (error) {
-      console.error("Failed to delete task", error)
-      Alert.alert("Error", "Failed to delete task")
-    }
-  }
-
-  const editTask = (index) => {
-    // Get the actual task from filteredTasks
-    const taskToEdit = filteredTasks[index]
-
-    // Find this exact task object in the original tasks array
-    const taskIndex = tasks.findIndex(
-      (task) =>
-        (typeof task === "string" && typeof taskToEdit === "string" && task === taskToEdit) ||
-        (typeof task !== "string" &&
-          typeof taskToEdit !== "string" &&
-          task.text === taskToEdit.text &&
-          task.createdAt === taskToEdit.createdAt),
-    )
-
+  const updateTask = async (index, update) => {
+    const taskToUpdate = filteredTasks[index];
+    const taskIndex = tasks.findIndex(t => (typeof t === 'string' && t === taskToUpdate) || (typeof t !== 'string' && t.text === taskToUpdate.text && t.createdAt === taskToUpdate.createdAt));
     if (taskIndex !== -1) {
-      navigation.navigate("AddTask", {
-        task: tasks[taskIndex],
-        index: taskIndex,
-      })
+      const updatedTasks = [...tasks];
+      updatedTasks[taskIndex] = typeof updatedTasks[taskIndex] === 'string' ? { text: updatedTasks[taskIndex], ...update } : { ...updatedTasks[taskIndex], ...update };
+      setTasks(updatedTasks);
+      await AsyncStorage.setItem("tasks", JSON.stringify(updatedTasks));
     }
-  }
+  };
 
-  const clearCompletedTasks = async () => {
-    try {
-      const updatedTasks = tasks.filter((task) => typeof task === "string" || !task.completed)
-      setTasks(updatedTasks)
-      await AsyncStorage.setItem("tasks", JSON.stringify(updatedTasks))
-    } catch (error) {
-      console.error("Failed to clear completed tasks", error)
-      Alert.alert("Error", "Failed to clear completed tasks")
-    }
-  }
+  const toggleComplete = (index) => updateTask(index, { completed: !filteredTasks[index].completed });
+  const deleteTask = (index) => {
+    const taskToDelete = filteredTasks[index];
+    const updatedTasks = tasks.filter(t => (typeof t === 'string' && t !== taskToDelete) || (typeof t !== 'string' && (t.text !== taskToDelete.text || t.createdAt !== taskToDelete.createdAt)));
+    setTasks(updatedTasks);
+    AsyncStorage.setItem("tasks", JSON.stringify(updatedTasks));
+  };
+  const editTask = (index) => {
+    const taskToEdit = filteredTasks[index];
+    const originalTask = tasks.find(t => (typeof t === 'string' && t === taskToEdit) || (typeof t !== 'string' && t.text === taskToEdit.text && t.createdAt === taskToEdit.createdAt));
+    navigation.navigate("AddTask", { task: originalTask, index: tasks.indexOf(originalTask) });
+  };
+  const clearCompleted = () => setTasks(tasks.filter(t => typeof t === 'string' || !t.completed), () => AsyncStorage.setItem("tasks", JSON.stringify(tasks.filter(t => typeof t === 'string' || !t.completed))));
+  const toggleSearch = () => { setShowSearch(!showSearch); if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 100); else setSearchQuery(""); };
+  const toggleFilters = () => setShowFilters(!showFilters);
 
-  const toggleSearch = () => {
-    setShowSearch(!showSearch)
-    if (!showSearch) {
-      setTimeout(() => {
-        searchInputRef.current?.focus()
-      }, 100)
-    } else {
-      setSearchQuery("")
-    }
-  }
+  const renderRightActions = ({ index }) => (
+    <View style={styles.rightActions}>
+      <TouchableOpacity style={[styles.actionButton, styles.editButton]} onPress={() => { swipeableRefs.current[index]?.close(); editTask(index); }}>
+        <Ionicons name="pencil-outline" size={24} color={TEXT_DARK} />
+      </TouchableOpacity>
+      <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={() => { swipeableRefs.current[index]?.close(); deleteTask(index); }}>
+        <Ionicons name="trash-outline" size={24} color={TEXT_DARK} />
+      </TouchableOpacity>
+    </View>
+  );
 
-  const renderSwipeableTask = ({ item, index }) => {
-    const renderRightActions = (progress, dragX) => {
-      const trans = dragX.interpolate({
-        inputRange: [-100, 0],
-        outputRange: [0, 100],
-        extrapolate: "clamp",
-      })
-
-      return (
-        <View style={styles.rightActions}>
-          <Animated.View
-            style={[
-              styles.actionButton,
-              styles.editButton,
-              {
-                transform: [{ translateX: trans }],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                swipeableRefs.current[index]?.close()
-                editTask(index)
-              }}
-            >
-              <Ionicons name="pencil" size={24} color="#fff" />
-            </TouchableOpacity>
-          </Animated.View>
-          <Animated.View
-            style={[
-              styles.actionButton,
-              styles.deleteButton,
-              {
-                transform: [{ translateX: trans }],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => {
-                swipeableRefs.current[index]?.close()
-                deleteTask(index)
-              }}
-            >
-              <Ionicons name="trash" size={24} color="#fff" />
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      )
-    }
-
-    return (
-      <Swipeable
-        ref={(ref) => (swipeableRefs.current[index] = ref)}
-        renderRightActions={renderRightActions}
-        rightThreshold={40}
-      >
-        <TaskItem
-          task={item}
-          onComplete={() => toggleTaskCompletion(index)}
-          onDelete={() => deleteTask(index)}
-          completed={typeof item !== "string" && item.completed}
-          priority={typeof item !== "string" ? item.priority : null}
-        />
-      </Swipeable>
-    )
-  }
+  const renderItem = ({ item, index }) => (
+    <Swipeable ref={(ref) => (swipeableRefs.current[index] = ref)} renderRightActions={() => renderRightActions({ index })} rightThreshold={40}>
+      <TaskItem
+        task={item}
+        onComplete={() => toggleComplete(index)}
+        completed={typeof item !== "string" && item.completed}
+        priority={typeof item !== "string" ? item.priority : null}
+        textColor={TEXT_DARK}
+        secondaryTextColor={TEXT_LIGHT}
+        itemBackgroundColor="#fff" 
+        completedItemBackgroundColor="#eee"
+        priorityColors={{ high: '#ef5350', normal: '#ffca28', low: '#66bb6a' }}
+      />
+    </Swipeable>
+  );
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <ImageBackground
-        source={require("../../assets/marissa-grootes-ck0i9Dnjtj0-unsplash.jpg")}
-        style={styles.background}
-      >
-        <View style={styles.header}>
-          <Text style={styles.title}>My Tasks</Text>
-          <View style={styles.headerButtons}>
-            <TouchableOpacity style={styles.iconButton} onPress={toggleSearch}>
-              <Ionicons name={showSearch ? "close" : "search"} size={24} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton} onPress={() => setShowFilters(!showFilters)}>
-              <Ionicons name="filter" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {showSearch && (
-          <View style={styles.searchContainer}>
-            <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
-            <TextInput
-              ref={searchInputRef}
-              style={styles.searchInput}
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoFocus
-            />
-          </View>
-        )}
-
-        {showFilters && (
-          <View style={styles.filtersContainer}>
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Status:</Text>
-              <View style={styles.filterOptions}>
-                {["all", "active", "completed"].map((option) => (
-                  <TouchableOpacity
-                    key={option}
-                    style={[styles.filterOption, filter === option && styles.filterOptionActive]}
-                    onPress={() => setFilter(option)}
-                  >
-                    <Text style={[styles.filterText, filter === option && styles.filterTextActive]}>
-                      {option.charAt(0).toUpperCase() + option.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Sort by:</Text>
-              <View style={styles.filterOptions}>
-                {[
-                  { id: "date", icon: "calendar" },
-                  { id: "priority", icon: "alert-circle" },
-                ].map((option) => (
-                  <TouchableOpacity
-                    key={option.id}
-                    style={[styles.filterOption, sortBy === option.id && styles.filterOptionActive]}
-                    onPress={() => setSortBy(option.id)}
-                  >
-                    <Ionicons name={option.icon} size={16} color={sortBy === option.id ? "#fff" : "#555"} />
-                    <Text style={[styles.filterText, sortBy === option.id && styles.filterTextActive]}>
-                      {option.id.charAt(0).toUpperCase() + option.id.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {filter === "completed" && (
-              <TouchableOpacity style={styles.clearButton} onPress={clearCompletedTasks}>
-                <Text style={styles.clearButtonText}>Clear completed</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        <FlatList
-          data={filteredTasks}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={renderSwipeableTask}
-          contentContainerStyle={styles.listContent}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="checkmark-done-circle" size={60} color="#3498db" />
-              <Text style={styles.emptyText}>
-                {searchQuery
-                  ? "No tasks match your search"
-                  : filter === "completed"
-                    ? "No completed tasks yet"
-                    : "No tasks yet. Add one!"}
-              </Text>
-            </View>
-          }
-        />
-
-        <View style={styles.footer}>
-          <View style={styles.statsContainer}>
-            <Text style={styles.statsText}>
-              {tasks.filter((task) => typeof task === "string" || !task.completed).length} tasks left
-            </Text>
-          </View>
-          <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate("AddTask")}>
-            <Ionicons name="add" size={30} color="#fff" />
+      <StatusBar barStyle="dark-content" backgroundColor={BACKGROUND_LIGHT} />
+      <View style={styles.header}>
+        <Text style={styles.title}>My Tasks</Text>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity onPress={toggleSearch} style={styles.iconButton}>
+            <Ionicons name={showSearch ? "close-outline" : "search-outline"} size={24} color={TEXT_DARK} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={toggleFilters} style={styles.iconButton}>
+            <Ionicons name="filter-outline" size={24} color={TEXT_DARK} />
           </TouchableOpacity>
         </View>
-      </ImageBackground>
+      </View>
+
+      {showSearch && (
+        <View style={styles.searchBar}>
+          <Ionicons name="search-outline" size={20} color={TEXT_LIGHT} style={styles.searchIcon} />
+          <TextInput
+            ref={searchInputRef}
+            style={styles.searchInput}
+            placeholder="Search tasks..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoFocus
+            placeholderTextColor={TEXT_LIGHT}
+            color={TEXT_DARK}
+            backgroundColor="#fff"
+          />
+        </View>
+      )}
+
+      {showFilters && (
+        <View style={styles.filtersContainer}>
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Status:</Text>
+            <View style={styles.filterOptions}>
+              {["all", "active", "completed"].map(option => (
+                <TouchableOpacity
+                  key={option}
+                  style={[styles.filterOption, filter === option && styles.filterOptionActive]}
+                  onPress={() => setFilter(option)}
+                >
+                  <Text style={[styles.filterText, filter === option && styles.filterTextActive]}>
+                    {option.charAt(0).toUpperCase() + option.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.filterRow}>
+            <Text style={styles.filterLabel}>Sort by:</Text>
+            <View style={styles.filterOptions}>
+              {[{ id: "date", label: "Date", icon: "calendar-outline" }, { id: "priority", label: "Priority", icon: "flag-outline" }].map(option => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[styles.filterOption, sortBy === option.id && styles.filterOptionActive]}
+                  onPress={() => setSortBy(option.id)}
+                >
+                  <Ionicons name={option.icon} size={18} color={sortBy === option.id ? TEXT_DARK : TEXT_LIGHT} style={{ marginRight: 5 }} />
+                  <Text style={[styles.filterText, sortBy === option.id && styles.filterTextActive]}>{option.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {filter === "completed" && (
+            <TouchableOpacity style={styles.clearButton} onPress={clearCompleted}>
+              <Text style={styles.clearButtonText}>Clear completed</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      <FlatList
+        data={filteredTasks}
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={<Text style={styles.emptyText}>No tasks here yet!</Text>}
+      />
+
+      <View style={styles.footer}>
+        <Text style={styles.tasksLeft}>{tasks.filter(t => typeof t === 'string' || !t.completed).length} tasks left</Text>
+        <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate("AddTask")}>
+          <Ionicons name="add-outline" size={30} color={TEXT_DARK} />
+        </TouchableOpacity>
+      </View>
     </View>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  background: {
-    flex: 1,
-    resizeMode: "cover",
+    backgroundColor: BACKGROUND_LIGHT,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    backgroundColor: BACKGROUND_LIGHT,
+    paddingTop: StatusBar.currentHeight + 10,
+    paddingBottom: 15,
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   title: {
     fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
+    fontWeight: 'bold',
+    color: TEXT_DARK,
   },
   headerButtons: {
-    flexDirection: "row",
+    flexDirection: 'row',
   },
   iconButton: {
     padding: 8,
     marginLeft: 8,
   },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
+  searchBar: {
+    backgroundColor: '#fff',
     borderRadius: 8,
+    paddingHorizontal: 15,
     margin: 10,
-    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 10,
+    color: TEXT_LIGHT,
   },
   searchInput: {
     flex: 1,
     height: 40,
     fontSize: 16,
+    color: TEXT_DARK,
   },
   filtersContainer: {
-    backgroundColor: "#fff",
-    margin: 10,
+    backgroundColor: '#fff',
     borderRadius: 8,
-    padding: 10,
+    padding: 15,
+    marginHorizontal: 10,
+    marginVertical: 5,
+    elevation: 2,
   },
-  filterGroup: {
-    marginBottom: 10,
+  filterRow: {
+    marginBottom: 15,
   },
   filterLabel: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: TEXT_DARK,
     marginBottom: 5,
-    color: "#555",
   },
   filterOptions: {
-    flexDirection: "row",
+    flexDirection: 'row',
   },
   filterOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f0f0f0",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: '#e0e0e0',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
     borderRadius: 20,
-    marginRight: 8,
+    marginRight: 10,
   },
   filterOptionActive: {
-    backgroundColor: "#3498db",
+    backgroundColor: PRIMARY_COLOR,
   },
   filterText: {
-    color: "#555",
-    marginLeft: 4,
+    color: TEXT_DARK,
   },
   filterTextActive: {
-    color: "#fff",
+    color: '#fff',
+    fontWeight: 'bold',
   },
   clearButton: {
-    backgroundColor: "#ff6b6b",
-    padding: 8,
-    borderRadius: 4,
-    alignItems: "center",
-    marginTop: 5,
+    backgroundColor: '#f44336',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 10,
   },
   clearButtonText: {
-    color: "#fff",
-    fontWeight: "600",
+    color: '#fff',
+    fontWeight: 'bold',
   },
   listContent: {
-    padding: 20,
-    paddingBottom: 100,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 40,
-    backgroundColor: "rgba(255,255,255,0.8)",
-    borderRadius: 12,
+    padding: 10,
   },
   emptyText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#555",
-    textAlign: "center",
+    fontSize: 18,
+    color: TEXT_LIGHT,
+    textAlign: 'center',
+    marginTop: 50,
   },
   footer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.9)",
-    paddingVertical: 10,
+    backgroundColor: BACKGROUND_LIGHT,
+    paddingVertical: 15,
     paddingHorizontal: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 5,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
-  statsContainer: {
-    flex: 1,
-  },
-  statsText: {
+  tasksLeft: {
     fontSize: 16,
-    color: "#555",
+    color: TEXT_LIGHT,
   },
   addButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#3498db",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
+    backgroundColor: PRIMARY_COLOR,
+    borderRadius: 30,
+    width: 60,
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
     elevation: 5,
   },
   rightActions: {
-    flexDirection: "row",
-    width: 120,
-    height: "100%",
+    flexDirection: 'row',
   },
   actionButton: {
     width: 60,
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
+    height: '100%',
+    
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   editButton: {
-    backgroundColor: "#3498db",
+    backgroundColor: PRIMARY_COLOR,
   },
   deleteButton: {
-    backgroundColor: "#e74c3c",
+    backgroundColor: '#f44336',
   },
-})
+});

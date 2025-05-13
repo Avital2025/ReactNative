@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  TextInput, 
-  Button, 
-  StyleSheet, 
-  Alert, 
-  Text, 
-  TouchableOpacity, 
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  Text,
   ScrollView,
   KeyboardAvoidingView,
   Platform
@@ -14,6 +13,25 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+
+const PRIMARY_DARK_BLUE_GRAY = '#37474f';
+const BACKGROUND_LIGHT_CREAM = '#f9f9f9'; 
+const TEXT_DARK = '#333';
+const TEXT_LIGHT_GRAY = '#555';
+const BORDER_GRAY = '#ddd';
+const INPUT_BACKGROUND_WHITE = '#fff';
+const PRIORITY_LOW_COLOR = '#2ecc71';
+const PRIORITY_NORMAL_COLOR = '#f39c12';
+const PRIORITY_HIGH_COLOR = '#e74c3c';
+const PRIORITY_ACTIVE_BACKGROUND_LOW = '#2ecc7122';
+const PRIORITY_ACTIVE_BACKGROUND_NORMAL = '#f39c1222';
+const PRIORITY_ACTIVE_BACKGROUND_HIGH = '#e74c3c22';
+const CATEGORY_BUTTON_BACKGROUND = '#f0f0f0';
+const CATEGORY_BUTTON_ACTIVE_BACKGROUND = PRIMARY_DARK_BLUE_GRAY;
+const BUTTON_CANCEL_BACKGROUND = '#f0f0f0';
+const BUTTON_SAVE_BACKGROUND = PRIMARY_DARK_BLUE_GRAY;
+const BUTTON_TEXT_COLOR = TEXT_LIGHT_GRAY;
+const BUTTON_SAVE_TEXT_COLOR = '#fff';
 
 export default function AddTaskScreen({ navigation, route }) {
   const editTask = route.params?.task;
@@ -38,7 +56,7 @@ export default function AddTaskScreen({ navigation, route }) {
     try {
       const storedTasks = await AsyncStorage.getItem('tasks');
       const tasks = storedTasks ? JSON.parse(storedTasks) : [];
-      
+
       const taskObj = {
         text: task,
         completed: isEditing && editTask.completed ? editTask.completed : false,
@@ -71,7 +89,7 @@ export default function AddTaskScreen({ navigation, route }) {
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
@@ -83,15 +101,17 @@ export default function AddTaskScreen({ navigation, route }) {
             value={task}
             onChangeText={setTask}
             style={styles.input}
+            placeholderTextColor={TEXT_LIGHT_GRAY}
+            color={TEXT_DARK}
           />
 
           <Text style={styles.label}>Priority</Text>
           <View style={styles.priorityContainer}>
             {['low', 'normal', 'high'].map((p) => (
-              <TouchableOpacity 
-                key={p} 
+              <TouchableOpacity
+                key={p}
                 style={[
-                  styles.priorityButton, 
+                  styles.priorityButton,
                   priority === p && styles.priorityButtonActive,
                   p === 'low' && styles.priorityLow,
                   p === 'normal' && styles.priorityNormal,
@@ -116,10 +136,10 @@ export default function AddTaskScreen({ navigation, route }) {
           <View style={styles.categoryContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {categories.map((cat) => (
-                <TouchableOpacity 
-                  key={cat} 
+                <TouchableOpacity
+                  key={cat}
                   style={[
-                    styles.categoryButton, 
+                    styles.categoryButton,
                     category === cat && styles.categoryButtonActive
                   ]}
                   onPress={() => setCategory(cat)}
@@ -136,16 +156,16 @@ export default function AddTaskScreen({ navigation, route }) {
           </View>
 
           <Text style={styles.label}>Due Date</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.dateButton}
             onPress={() => setShowDatePicker(true)}
           >
-            <Ionicons name="calendar-outline" size={20} color="#555" />
+            <Ionicons name="calendar-outline" size={20} color={TEXT_LIGHT_GRAY} />
             <Text style={styles.dateButtonText}>
               {dueDate ? dueDate.toDateString() : 'Set due date'}
             </Text>
           </TouchableOpacity>
-          
+
           {showDatePicker && (
             <DateTimePicker
               value={dueDate || new Date()}
@@ -162,17 +182,19 @@ export default function AddTaskScreen({ navigation, route }) {
             onChangeText={setNotes}
             style={[styles.input, styles.notesInput]}
             multiline
+            placeholderTextColor={TEXT_LIGHT_GRAY}
+            color={TEXT_DARK}
           />
 
           <View style={styles.buttonContainer}>
-            <TouchableOpacity 
-              style={[styles.button, styles.cancelButton]} 
+            <TouchableOpacity
+              style={[styles.button, styles.cancelButton]}
               onPress={() => navigation.goBack()}
             >
               <Text style={styles.buttonText}>Cancel</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.button, styles.saveButton]} 
+            <TouchableOpacity
+              style={[styles.button, styles.saveButton]}
               onPress={saveTask}
             >
               <Text style={[styles.buttonText, styles.saveButtonText]}>
@@ -189,7 +211,7 @@ export default function AddTaskScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: BACKGROUND_LIGHT_CREAM,
   },
   scrollView: {
     flex: 1,
@@ -201,16 +223,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#333',
+    color: TEXT_DARK,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: BORDER_GRAY,
     borderRadius: 8,
     padding: 12,
     marginBottom: 20,
-    backgroundColor: '#fff',
+    backgroundColor: INPUT_BACKGROUND_WHITE,
     fontSize: 16,
+    color: TEXT_DARK,
   },
   notesInput: {
     height: 100,
@@ -225,40 +248,40 @@ const styles = StyleSheet.create({
     padding: 10,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: BORDER_GRAY,
     marginRight: 8,
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: INPUT_BACKGROUND_WHITE,
   },
   priorityButtonActive: {
-    borderColor: '#3498db',
+    borderColor: PRIMARY_DARK_BLUE_GRAY,
   },
   priorityLow: {
-    borderLeftColor: '#2ecc71',
+    borderLeftColor: PRIORITY_LOW_COLOR,
     borderLeftWidth: 4,
   },
   priorityNormal: {
-    borderLeftColor: '#f39c12',
+    borderLeftColor: PRIORITY_NORMAL_COLOR,
     borderLeftWidth: 4,
   },
   priorityHigh: {
-    borderLeftColor: '#e74c3c',
+    borderLeftColor: PRIORITY_HIGH_COLOR,
     borderLeftWidth: 4,
   },
   priorityLowActive: {
-    backgroundColor: '#2ecc7122',
+    backgroundColor: PRIORITY_ACTIVE_BACKGROUND_LOW,
   },
   priorityNormalActive: {
-    backgroundColor: '#f39c1222',
+    backgroundColor: PRIORITY_ACTIVE_BACKGROUND_NORMAL,
   },
   priorityHighActive: {
-    backgroundColor: '#e74c3c22',
+    backgroundColor: PRIORITY_ACTIVE_BACKGROUND_HIGH,
   },
   priorityText: {
-    color: '#555',
+    color: TEXT_LIGHT_GRAY,
   },
   priorityTextActive: {
-    color: '#3498db',
+    color: PRIMARY_DARK_BLUE_GRAY,
     fontWeight: '600',
   },
   categoryContainer: {
@@ -268,14 +291,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: CATEGORY_BUTTON_BACKGROUND,
     marginRight: 8,
   },
   categoryButtonActive: {
-    backgroundColor: '#3498db',
+    backgroundColor: CATEGORY_BUTTON_ACTIVE_BACKGROUND,
   },
   categoryText: {
-    color: '#555',
+    color: TEXT_LIGHT_GRAY,
   },
   categoryTextActive: {
     color: '#fff',
@@ -285,14 +308,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: BORDER_GRAY,
     borderRadius: 8,
     marginBottom: 20,
-    backgroundColor: '#fff',
+    backgroundColor: INPUT_BACKGROUND_WHITE,
   },
   dateButtonText: {
     marginLeft: 8,
-    color: '#555',
+    color: TEXT_LIGHT_GRAY,
     fontSize: 16,
   },
   buttonContainer: {
@@ -308,17 +331,17 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
   },
   cancelButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: BUTTON_CANCEL_BACKGROUND,
   },
   saveButton: {
-    backgroundColor: '#3498db',
+    backgroundColor: BUTTON_SAVE_BACKGROUND,
   },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#555',
+    color: BUTTON_TEXT_COLOR,
   },
   saveButtonText: {
-    color: '#fff',
+    color: BUTTON_SAVE_TEXT_COLOR,
   },
 });

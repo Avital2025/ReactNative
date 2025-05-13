@@ -2,36 +2,68 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function TaskItem({ task, onComplete, onDelete, completed, priority }) {
-  // Keep original functionality
+const PRIMARY_DARK_BLUE_GRAY = '#37474f'; 
+const BACKGROUND_LIGHT_CREAM = '#f9f9f9'; 
+const TEXT_DARK = '#212121';
+const TEXT_LIGHT = '#757575';
+const ACCENT_COLOR = PRIMARY_DARK_BLUE_GRAY; 
+
+export default function TaskItem({ task, onComplete, onDelete, completed, priority, textColor, secondaryTextColor, itemBackgroundColor, completedItemBackgroundColor, priorityColors }) {
+  const animation = new Animated.Value(completed ? 1 : 0);
+
+  const checkboxStyle = {
+    backgroundColor: animation.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['transparent', ACCENT_COLOR]
+    }),
+    borderColor: ACCENT_COLOR,
+  };
+
+  const checkmarkStyle = {
+    opacity: animation,
+    transform: [{
+      scale: animation,
+    }]
+  };
+
+  Animated.timing(animation, {
+    toValue: completed ? 1 : 0,
+    duration: 200,
+    useNativeDriver: true,
+  }).start();
+
+  const priorityIndicatorStyle = {
+    height: '100%',
+    width: 5,
+    position: 'absolute',
+    left: 0,
+    backgroundColor: priorityColors?.[priority] || 'transparent',
+    borderRadius: 3,
+  };
+
   return (
-    <View style={[
-      styles.item, 
-      completed && styles.completedItem,
-      priority === 'high' && styles.highPriority,
-      priority === 'medium' && styles.mediumPriority,
-      priority === 'low' && styles.lowPriority,
-    ]}>
+    <View style={[styles.item, { backgroundColor: itemBackgroundColor || BACKGROUND_LIGHT_CREAM }, completed && { backgroundColor: completedItemBackgroundColor || '#e0e0e0', opacity: 0.7 }]}>
+      <View style={priorityIndicatorStyle} />
       <TouchableOpacity style={styles.checkbox} onPress={onComplete}>
-        <View style={[styles.checkboxInner, completed && styles.checkboxChecked]}>
-          {completed && <Ionicons name="checkmark" size={16} color="#fff" />}
-        </View>
+        <Animated.View style={[styles.checkboxInner, checkboxStyle]}>
+          {completed && <Animated.View style={checkmarkStyle}><Ionicons name="checkmark-sharp" size={20} color="#fff" /></Animated.View>}
+        </Animated.View>
       </TouchableOpacity>
       <View style={styles.textContainer}>
-        <Text style={[styles.taskText, completed && styles.completedText]}>{task.text || task}</Text>
+        <Text style={[styles.taskText, { color: textColor || TEXT_DARK }, completed && styles.completedText]}>{task.text || task}</Text>
         {task.dueDate && (
-          <Text style={styles.dueDate}>
-            <Ionicons name="calendar-outline" size={12} color="#666" /> {task.dueDate}
+          <Text style={[styles.dueDate, { color: secondaryTextColor || TEXT_LIGHT }]}>
+            <Ionicons name="calendar-outline" size={14} color={secondaryTextColor || TEXT_LIGHT} /> {task.dueDate}
           </Text>
         )}
         {task.category && (
-          <View style={styles.categoryBadge}>
+          <View style={[styles.categoryBadge, { backgroundColor: ACCENT_COLOR }]}>
             <Text style={styles.categoryText}>{task.category}</Text>
           </View>
         )}
       </View>
       <TouchableOpacity onPress={onDelete} style={styles.deleteButton}>
-        <Ionicons name="trash-outline" size={20} color="#ff4444" />
+        <Ionicons name="close-circle-outline" size={24} color="#f44336" />
       </TouchableOpacity>
     </View>
   );
@@ -39,79 +71,61 @@ export default function TaskItem({ task, onComplete, onDelete, completed, priori
 
 const styles = StyleSheet.create({
   item: {
-    padding: 16,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    marginBottom: 10,
+    padding: 18,
+    borderRadius: 8,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
+    elevation: 2,
+    position: 'relative',
+    overflow: 'hidden',
   },
   completedItem: {
-    backgroundColor: '#f8f8f8',
-    opacity: 0.8,
+    opacity: 0.7,
   },
   checkbox: {
-    marginRight: 12,
-  },
-  checkboxInner: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    marginRight: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#3498db',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkboxChecked: {
-    backgroundColor: '#3498db',
+  checkboxInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   textContainer: {
     flex: 1,
   },
   taskText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: 'normal',
   },
   completedText: {
     textDecorationLine: 'line-through',
-    color: '#888',
+    color: TEXT_LIGHT,
   },
   dueDate: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 5,
   },
   deleteButton: {
-    padding: 8,
-  },
-  highPriority: {
-    borderLeftWidth: 5,
-    borderLeftColor: '#e74c3c',
-  },
-  mediumPriority: {
-    borderLeftWidth: 5,
-    borderLeftColor: '#f39c12',
-  },
-  lowPriority: {
-    borderLeftWidth: 5,
-    borderLeftColor: '#2ecc71',
+    padding: 10,
   },
   categoryBadge: {
-    backgroundColor: '#e0e0e0',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginTop: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 15,
+    marginTop: 5,
     alignSelf: 'flex-start',
   },
   categoryText: {
-    fontSize: 10,
-    color: '#555',
+    fontSize: 12,
+    color: '#fff',
   },
 });
